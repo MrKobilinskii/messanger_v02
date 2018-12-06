@@ -19,9 +19,9 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.develop.daniil.sms_v01.R;
+import com.develop.daniil.sms_v01.Utils.SecureMessage;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Random;
 
 public class SendFragment extends Fragment {
 
@@ -35,7 +35,7 @@ public class SendFragment extends Fragment {
     PendingIntent sent_pi, deliver_pi;
 
     Button send_button;
-    EditText phone_editText,msg_editText;
+    EditText phone_editText,msg_editText,key_editText;
     String phoneNo, message;
     int key; //Ключ для шифра
 
@@ -50,6 +50,7 @@ public class SendFragment extends Fragment {
         send_button= view.findViewById(R.id.send_Button);
         phone_editText= view.findViewById(R.id.phone_editText);
         msg_editText= view.findViewById(R.id.msgText_editText);
+        key_editText = view.findViewById(R.id.key_editText);
 
         send_button.setOnClickListener(new View.OnClickListener()
         {
@@ -57,52 +58,46 @@ public class SendFragment extends Fragment {
             {
                 phoneNo = phone_editText.getText().toString();
                 message = msg_editText.getText().toString();
+                String decryptMsg = "";
 
-                message = secureMessage(message); //шифруем
+                Random random = new Random(System.currentTimeMillis());
+                int mkey = random.nextInt(1000);
+                key = mkey % 26;  //ключ от 0 до 25
 
-                if(phoneNo.length()>0 && message.length()>0) //Todo: добавить проверки
-                    if(phoneNo.length() < 50 && message.length() < 100)
-                        sendSMS(phoneNo, message);
-                    else
-                        Toast.makeText(getActivity().getBaseContext(), "Некорректный ввод данных", Toast.LENGTH_SHORT).show();
-                else
-                    if(getActivity() != null) {
-                        Toast.makeText(getActivity().getBaseContext(),
-                               "Введите номер и текст сообщения.",
-                                Toast.LENGTH_SHORT).show();
-                    }
+                SecureMessage secureMessage = new SecureMessage();
+                if(message.length() > 0)
+                    message = secureMessage.encryptMessage(message, key); //шифр
+
+                phone_editText.setText(message);
+//
+                if(message.charAt(0) == '[' && message.indexOf(']') != -1) {  //дешифр
+                    decryptMsg = message.substring(1, message.indexOf(']'));             //достаю смс
+                    key = Integer.parseInt(message.substring( message.indexOf(']') + 1, message.length())); //достаю ключ
+
+                    decryptMsg = secureMessage.decryptMessage(decryptMsg, key);
+                    msg_editText.setText(decryptMsg);
+                }
+
+//                if(phoneNo.length()>0 && message.length()>0) //Todo: добавить проверки
+//                    if(phoneNo.length() < 50 && message.length() < 100)
+//                        sendSMS(phoneNo, message);
+//                    else
+//                        Toast.makeText(getActivity().getBaseContext(), "Превышен лимит символов...", Toast.LENGTH_SHORT).show();
+//                else
+//                    if(getActivity() != null) {
+//                        Toast.makeText(getActivity().getBaseContext(),
+//                               "Введите номер и текст сообщения.",
+//                                Toast.LENGTH_SHORT).show();
+//                    }
+//
             }
         });
 
        return view;
     }
 
-    private String secureMessage(String message){
-        int a = 0; // Начальное значение диапазона - "от"
-        int b = 4; // Конечное значение диапазона - "до"
-        List<Character> myAlphabet = new ArrayList<>(); //динамич массив
-        char[] CharArray = message.toCharArray();
-        char[] newCharArray = new char[CharArray.length];
 
-        key = a + (int) (Math.random() * b);
 
-        int j =0;
-        while (j<=4) {
-            int t = 97 + j;
-            myAlphabet.add((char) t);
-            j++;
-        }
-
-        for (int i = 0; i <= CharArray.length - 1; i++) {
-            int newChar = ((int)CharArray[i] - 97 + key) % 5 + 97;
-            newCharArray[i] = (char) newChar;
-        }
-
-        char chkey = (char) (key + 97);
-
-        message = "[" + String.valueOf(newCharArray) + "]" + chkey + key;
-        return message;
-    }
 
     private void sendSMS(String phoneNumber, String message)
     {
